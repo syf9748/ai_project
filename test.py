@@ -1,36 +1,62 @@
 import streamlit as st
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import onnxruntime_genai as og
+import requests
+import json
+import time
 
-model = og.Model('cuda-int4-rtn-block-32')
-tokenizer = og.Tokenizer(model)
-tokenizer_stream = tokenizer.create_stream()
-params = og.GeneratorParams(model)
-search_options = {'max_length':2048,'do_sample': True,'temperature':1.0} 
-params.set_search_options(**search_options)
-chat_template = '<|user|>\n{input} <|end|>\n<|assistant|>'
+api_url = "http://127.0.0.1:8000/items/"
 
-def model_process(query):
-	prompt = f'{chat_template.format(input=query)}'
-	input_tokens = tokenizer.encode(prompt)
-	params.input_ids = input_tokens
-	generator = og.Generator(model, params)
-	
-	output = ''
-	while not generator.is_done():
-		generator.compute_logits()
-		generator.generate_next_token()
-		new_token = generator.get_next_tokens()[0]
-		output = output + tokenizer_stream.decode(new_token)
-	return output
+# sidebar
+with st.sidebar:
+    upload_file = st.file_uploader("Drop your file")
+    st.header("File list:")
+    if "file" not in st.session_state:
+        st.session_state.file = []
+    if upload_file is not None:
+        st.session_state.file.append(upload_file.name)
+    for file in st.session_state.file:
+        st.write(file)
+    
+        
+        
 
-prompt = st.chat_input("Say something")
-if prompt:
+# title 
+st.title("💬 Chatbot")
+st.caption("🚀 A Streamlit chatbot powered by phi3 mini")
+
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "How can I help you?"}]
+
+# Display chat messages from history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# User input
+if prompt := st.chat_input("Say something"):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    # Display user input
     with st.chat_message("user"):
-        st.write(prompt)
+        st.markdown(prompt)
 
-    output = model_process(prompt)
+    # Display response
+    with st.chat_message("assistant"):
 
-    with st.chat_message("ai"):
-        st.write(output)
+        # Get response from FASTAPI
+        response = requests.post(api_url, json = {"query":prompt})#, stream=True)
+
+        if response.status_code == 200:
+            #output = st.write_stream(response.iter_content())
+            def generate_output(response):
+                for item in response.json()["response"]:
+                    yield item
+                    time.sleep(0.1)
+            output = st.write_stream(generate_output(response))
+        else:
+            output = st.write("Error: " + str(response.status_code))
+    
+    # Add response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": output})
+
+
