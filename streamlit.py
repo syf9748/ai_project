@@ -15,9 +15,6 @@ with st.sidebar:
         st.session_state.file.append(upload_file.name)
     for file in st.session_state.file:
         st.write(file)
-    
-        
-        
 
 # title 
 st.title("💬 Chatbot")

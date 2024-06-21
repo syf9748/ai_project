@@ -5,9 +5,11 @@ import onnxruntime_genai as og
 import asyncio
 import time
 
+# define query format
 class Item(BaseModel):
 	query: str
-	
+
+# model initialization	
 model = og.Model('cuda-int4-rtn-block-32')
 tokenizer = og.Tokenizer(model)
 tokenizer_stream = tokenizer.create_stream()
@@ -19,6 +21,7 @@ chat_template = '<|system|>\n{system}<|end|><|user|>\n{input}<|end|>\n<|assistan
 
 app = FastAPI()
 
+# feed input into the model
 def model_process(query):
 	prompt = f'{chat_template.format(system=systemq,input=query)}'
 	input_tokens = tokenizer.encode(prompt)
@@ -30,9 +33,9 @@ def model_process(query):
 		generator.compute_logits()
 		generator.generate_next_token()
 		new_token = generator.get_next_tokens()[0]
+		#store a list of tokens
 		output.append(tokenizer_stream.decode(new_token))
-		#yield {"response":tokenizer_stream.decode(new_token)}
-		
+
 	return output
 
 @app.post("/items/")
@@ -40,12 +43,7 @@ async def create_item(item: Item):
 	
 	query_dict = item.model_dump()
 	query = query_dict['query']
+	# needs to be returned in json format
 	output = {"response":model_process(query)}
-	#async def create_stream(output):
-		#for i in output:
-			#yield i
-			#time.sleep(0.3)
 
 	return output
-	#return StreamingResponse(create_stream(output))
-	#return StreamingResponse(model_process(query))

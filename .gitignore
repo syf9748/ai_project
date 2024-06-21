@@ -1,3 +1,7 @@
 cuda-int4-rtn-block-32/
 resources/
 llm_streamlit_demo.py
+phi3-qa-origin.py
+phi3-qa.py
+__pycache__/
+.gitignore
